@@ -6,6 +6,7 @@ from temporalio.worker import Worker
 from temporalio import activity
 
 from shared.activities.parsing import parse_document
+from shared.queues import PARSING_TASK_QUEUE
 
 
 # =============================================================================
@@ -73,12 +74,12 @@ async def main():
 
     worker = Worker(
         client,
-        task_queue="parsing-task-queue",
+        task_queue=PARSING_TASK_QUEUE,
         activities=[parse_document_implementation],
     )
 
     print("Parser worker started")
-    print("Listening on task queue: parsing-task-queue")
+    print(f"Listening on task queue: {PARSING_TASK_QUEUE}")
 
     await worker.run()
 

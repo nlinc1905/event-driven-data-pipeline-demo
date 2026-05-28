@@ -6,6 +6,7 @@ from temporalio.worker import Worker
 from temporalio import activity
 
 from shared.activities.generation import generate_document
+from shared.queues import GENERATION_TASK_QUEUE
 
 
 # =============================================================================
@@ -70,12 +71,12 @@ async def main():
 
     worker = Worker(
         client,
-        task_queue="generation-task-queue",
+        task_queue=GENERATION_TASK_QUEUE,
         activities=[generate_document_implementation],
     )
 
     print("Generator worker started")
-    print("Listening on task queue: generation-task-queue")
+    print(f"Listening on task queue: {GENERATION_TASK_QUEUE}")
 
     await worker.run()
 

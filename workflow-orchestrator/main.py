@@ -8,6 +8,7 @@ from temporalio import workflow
 
 from shared.activities.parsing import parse_document
 from shared.activities.generation import generate_document
+from shared.queues import PARSING_TASK_QUEUE, GENERATION_TASK_QUEUE, WORKFLOW_TASK_QUEUE
 
 
 # =============================================================================
@@ -29,7 +30,7 @@ class DocumentProcessingWorkflow:
         parsed_result = await workflow.execute_activity(
             parse_document,
             document,
-            task_queue="parsing-task-queue",
+            task_queue=PARSING_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=30),
         )
 
@@ -38,7 +39,7 @@ class DocumentProcessingWorkflow:
         generation_result = await workflow.execute_activity(
             generate_document,
             parsed_result,
-            task_queue="generation-task-queue",
+            task_queue=GENERATION_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=60),
         )
 
@@ -84,12 +85,12 @@ async def main():
 
     worker = Worker(
         client,
-        task_queue="workflow-task-queue",
+        task_queue=WORKFLOW_TASK_QUEUE,
         workflows=[DocumentProcessingWorkflow],
     )
 
     print("Workflow orchestrator started")
-    print("Listening on task queue: workflow-task-queue")
+    print(f"Listening on task queue: {WORKFLOW_TASK_QUEUE}")
 
     await worker.run()
 
