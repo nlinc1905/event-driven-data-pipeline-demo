@@ -1,30 +1,31 @@
 import asyncio
 from datetime import timedelta
 
-from temporalio.worker import Worker
 from temporalio import workflow
+from temporalio.worker import Worker
 
-from shared.activities.parsing import parse_document
 from shared.activities.generation import generate_document
-from shared.queues import PARSING_TASK_QUEUE, GENERATION_TASK_QUEUE, WORKFLOW_TASK_QUEUE
+from shared.activities.parsing import parse_document
+from shared.queues import (
+    GENERATION_TASK_QUEUE, 
+    PARSING_TASK_QUEUE,
+    WORKFLOW_TASK_QUEUE,
+)
 from shared.temporal_client import connect_to_temporal
+from shared.workflows import DocumentProcessingWorkflow
 
 
 # =============================================================================
 # WORKFLOW
 # =============================================================================
 
-@workflow.defn
-class DocumentProcessingWorkflow:
+@workflow.defn(name=DocumentProcessingWorkflow.__name__)
+class DocumentProcessingWorkflowImplementation:
 
     @workflow.run
     async def run(self, document: str) -> str:
 
         workflow.logger.info("Workflow started")
-
-        # ---------------------------------------------------------------------
-        # Dispatch parsing activity
-        # ---------------------------------------------------------------------
 
         parsed_result = await workflow.execute_activity(
             parse_document,
@@ -43,7 +44,7 @@ class DocumentProcessingWorkflow:
         )
 
         workflow.logger.info("Generation completed")
-        
+
         return generation_result
 
 
@@ -58,7 +59,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=WORKFLOW_TASK_QUEUE,
-        workflows=[DocumentProcessingWorkflow],
+        workflows=[DocumentProcessingWorkflowImplementation],
     )
 
     print("Workflow orchestrator started")

@@ -5,26 +5,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from temporalio.client import Client, WorkflowHandle
 
+from shared.queues import WORKFLOW_TASK_QUEUE
 from shared.temporal_client import connect_to_temporal
-
-# =============================================================================
-# SHARED WORKFLOW IMPORTS
-# =============================================================================
-#
-# In production:
-# -----------------------------------------
-# These would come from a shared package:
-#
-#     shared-temporal/workflows/
-#
-# For now we define a stub signature only.
-#
-# =============================================================================
-
-class DocumentProcessingWorkflow:
-    @staticmethod
-    async def run(document: str) -> str:
-        return ""
+from shared.workflows import DocumentProcessingWorkflow
 
 
 # =============================================================================
@@ -111,10 +94,10 @@ async def parse_document(request: ParseRequest):
         raise RuntimeError("Temporal client not initialized")
 
     handle: WorkflowHandle = await temporal_client.start_workflow(
-        "DocumentProcessingWorkflow",
+        DocumentProcessingWorkflow.__name__,
         request.document,
         id=workflow_id,
-        task_queue="workflow-task-queue",
+        task_queue=WORKFLOW_TASK_QUEUE,
     )
 
     return ParseResponse(

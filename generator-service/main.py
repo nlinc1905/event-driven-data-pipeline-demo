@@ -1,12 +1,11 @@
 import asyncio
 
-from temporalio.worker import Worker
 from temporalio import activity
+from temporalio.worker import Worker
 
 from shared.activities.generation import generate_document
-from shared.temporal_client import connect_to_temporal
 from shared.queues import GENERATION_TASK_QUEUE
-
+from shared.temporal_client import connect_to_temporal
 
 # =============================================================================
 # GENERATION ACTIVITY

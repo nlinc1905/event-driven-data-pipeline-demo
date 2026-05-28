@@ -69,7 +69,8 @@ services:
 
   api-service:
     build:
-      context: ./api-service
+      context: .
+      dockerfile: ./api-service/Dockerfile
     container_name: api-service
     ports:
       - "8000:8000"
