@@ -1,14 +1,13 @@
 import asyncio
-import os
 from datetime import timedelta
 
-from temporalio.client import Client
 from temporalio.worker import Worker
 from temporalio import workflow
 
 from shared.activities.parsing import parse_document
 from shared.activities.generation import generate_document
 from shared.queues import PARSING_TASK_QUEUE, GENERATION_TASK_QUEUE, WORKFLOW_TASK_QUEUE
+from shared.temporal_client import connect_to_temporal
 
 
 # =============================================================================
@@ -51,33 +50,6 @@ class DocumentProcessingWorkflow:
 # =============================================================================
 # WORKER
 # =============================================================================
-
-async def connect_to_temporal() -> Client:
-    """
-    Helper function to connect to Temporal with retries, ensuring it is 
-    up and ready before starting the worker.
-    """
-
-    temporal_host = os.getenv("TEMPORAL_HOST", "localhost:7233")
-
-    while True:
-        try:
-            print(f"Connecting to Temporal at {temporal_host}")
-
-            client = await Client.connect(
-                temporal_host,
-                namespace="default",
-            )
-
-            print("Connected to Temporal")
-
-            return client
-
-        except Exception as e:
-            print(f"Temporal not ready yet: {e}")
-
-            await asyncio.sleep(5)
-
 
 async def main():
 

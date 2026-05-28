@@ -1,11 +1,11 @@
-import asyncio
-import os
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from pydantic import BaseModel
 from temporalio.client import Client, WorkflowHandle
+
+from shared.temporal_client import connect_to_temporal
 
 # =============================================================================
 # SHARED WORKFLOW IMPORTS
@@ -54,36 +54,6 @@ temporal_client: Client | None = None
 # =============================================================================
 # FASTAPI LIFESPAN
 # =============================================================================
-
-
-
-
-async def connect_to_temporal() -> Client:
-    """
-    Helper function to connect to Temporal with retries, ensuring it is 
-    up and ready before starting the worker.
-    """
-
-    temporal_host = os.getenv("TEMPORAL_HOST", "localhost:7233")
-
-    while True:
-        try:
-            print(f"Connecting to Temporal at {temporal_host}")
-
-            client = await Client.connect(
-                temporal_host,
-                namespace="default",
-            )
-
-            print("Connected to Temporal")
-
-            return client
-
-        except Exception as e:
-            print(f"Temporal not ready yet: {e}")
-
-            await asyncio.sleep(5)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
