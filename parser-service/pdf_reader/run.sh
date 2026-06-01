@@ -4,6 +4,6 @@
 docker build -t docling-pdf .
 
 # Run the container, mounting the current directory to /app inside the container
-docker run --rm \
+docker run --rm -it \
   -v $(pwd):/app \
   docling-pdf
