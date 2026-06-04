@@ -219,5 +219,5 @@ __marimo__/
 
 # Test files
 sample.pdf
-output.md
 output/
+next_steps.md

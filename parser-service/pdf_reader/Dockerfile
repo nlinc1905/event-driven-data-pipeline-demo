@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir \
     opencv-python-headless \
     docling
 
-COPY extract_text_from_pdf_v3.py .
+COPY extract_text_from_pdf.py .
 
-# CMD ["python", "extract_text_from_pdf_v3.py"]
-CMD ["/bin/bash"]
+CMD ["python", "extract_text_from_pdf.py", "sample.pdf", "output/output.json"]
+# CMD ["/bin/bash"]
