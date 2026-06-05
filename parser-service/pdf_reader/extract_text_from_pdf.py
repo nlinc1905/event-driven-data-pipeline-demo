@@ -230,6 +230,23 @@ def get_section_from_json(json_data: dict, section_id: int) -> list[dict] | None
     return results if results else None
 
 
+def export_md(extracted_data: dict, output_path: str | None = None) -> str:
+    """
+    Helper function to export the full Markdown text from the extracted data dict.
+
+    :param extracted_data: The dict containing the extracted data, including the "full_markdown" key.
+    :param output_path: Optional path to write the Markdown output file.
+
+    :return: The full Markdown string extracted from the document.
+    """
+    full_markdown = extracted_data.get("full_markdown", "")
+    if output_path:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(full_markdown)
+        print(f"Saved full Markdown to file: {output_path}")
+    return full_markdown
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python pdf_extract.py <input.pdf> [output.json]")
@@ -237,4 +254,6 @@ if __name__ == "__main__":
 
     pdf_in  = sys.argv[1]
     json_out = sys.argv[2] if len(sys.argv) > 2 else None
-    extract_pdf(pdf_in, json_out)
+    md_out = sys.argv[2].replace(".json", ".md") if len(sys.argv) > 2 else None
+    output = extract_pdf(pdf_in, json_out)
+    _ = export_md(output, md_out)

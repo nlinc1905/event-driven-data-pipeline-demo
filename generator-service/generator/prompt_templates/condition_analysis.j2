@@ -1,0 +1,12 @@
+Analyze the following document section text and determine which conditions apply.
+
+Section text:
+{{ section_text }}
+
+Respond with a JSON object with the following boolean fields:
+- "tone_formal": true if the content is business/corporate in nature
+- "include_bullets": true if the content has multiple distinct items or list-like structure
+- "add_examples": true if the content is abstract or conceptual and would benefit from examples
+- "word_limit": the suggested word limit as an integer (200 for short sections, 400 for medium, 600 for long), or null if no limit needed
+
+Return only the raw JSON object, no markdown, no commentary.

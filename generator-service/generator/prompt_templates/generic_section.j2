@@ -1,0 +1,15 @@
+You are a professional document writer.
+
+Expand and refine the following section content into polished prose:
+
+{{ section_text }}
+
+{% if add_examples %}
+Include at least one concrete example to illustrate the main point.
+{% endif %}
+
+{% if word_limit %}
+Keep your response under {{ word_limit }} words.
+{% endif %}
+
+Return only the written section content, no additional commentary.
