@@ -116,7 +116,7 @@ async def parse_document(request: ParseRequest):
 
     handle: WorkflowHandle = await temporal_client.start_workflow(
         DocumentProcessingWorkflow.__name__,
-        request.document,
+        args=[workflow_id, request.document],
         id=workflow_id,
         task_queue=WORKFLOW_TASK_QUEUE,
     )
@@ -139,7 +139,7 @@ async def generate_document(websocket: WebSocket):
         #
         #   handle = await temporal_client.start_workflow(
         #       DocumentProcessingWorkflow.__name__,
-        #       id=f"document-workflow-{uuid.uuid4()}",
+        #       id=workflow_id,
         #       task_queue=WORKFLOW_TASK_QUEUE,
         #   )
         #   result = await handle.result()
