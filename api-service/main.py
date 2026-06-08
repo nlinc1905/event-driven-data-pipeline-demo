@@ -1,13 +1,19 @@
+import asyncio
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from temporalio.client import Client, WorkflowHandle
 
 from shared.queues import WORKFLOW_TASK_QUEUE
 from shared.temporal_client import connect_to_temporal
 from shared.workflows import DocumentProcessingWorkflow
+
+from connection_manager import manager
+from redis_client import REDIS_CHANNEL, connect_to_redis
 
 
 # =============================================================================
@@ -33,6 +39,8 @@ class HealthResponse(BaseModel):
 
 temporal_client: Client | None = None
 
+ASYNCAPI_DOCS_PATH = Path(__file__).parent / "asyncapi-docs.yaml"
+
 
 # =============================================================================
 # FASTAPI LIFESPAN
@@ -44,8 +52,11 @@ async def lifespan(app: FastAPI):
     global temporal_client
 
     temporal_client = await connect_to_temporal()
-
     print("Connected to Temporal")
+
+    redis = await connect_to_redis()
+    asyncio.create_task(manager.start_subscriber(redis, REDIS_CHANNEL))
+    print(f"Started Redis subscriber on channel: {REDIS_CHANNEL}")
 
     yield
 
@@ -78,6 +89,20 @@ async def health():
     )
 
 
+@app.get(
+    "/ws-docs",
+    response_class=FileResponse,
+    summary="AsyncAPI documentation",
+    description="Returns the AsyncAPI YAML specification for the WebSocket API.",
+)
+async def ws_docs():
+    return FileResponse(
+        path=ASYNCAPI_DOCS_PATH,
+        media_type="application/yaml",
+        filename="asyncapi-docs.yaml",
+    )
+
+
 @app.post(
     "/parse",
     response_model=ParseResponse,
@@ -85,10 +110,6 @@ async def health():
 async def parse_document(request: ParseRequest):
 
     workflow_id = f"document-workflow-{uuid.uuid4()}"
-
-    # -------------------------------------------------------------------------
-    # Start workflow asynchronously
-    # -------------------------------------------------------------------------
 
     if temporal_client is None:
         raise RuntimeError("Temporal client not initialized")
@@ -104,3 +125,32 @@ async def parse_document(request: ParseRequest):
         workflow_id=handle.id,
         message="Workflow started",
     )
+
+
+@app.websocket("/generate")
+async def generate_document(websocket: WebSocket):
+
+    workflow_id = f"document-workflow-{uuid.uuid4()}"
+
+    await manager.connect(workflow_id, websocket)
+
+    try:
+        # TODO: replace the sleep and result below with a Temporal workflow.
+        #
+        #   handle = await temporal_client.start_workflow(
+        #       DocumentProcessingWorkflow.__name__,
+        #       id=f"document-workflow-{uuid.uuid4()}",
+        #       task_queue=WORKFLOW_TASK_QUEUE,
+        #   )
+        #   result = await handle.result()
+
+        await asyncio.sleep(20)
+        result = {"status": "completed", "document": "placeholder"}
+
+        await manager.send(workflow_id, result)
+
+    except WebSocketDisconnect:
+        print("Client disconnected before document generation completed")
+
+    finally:
+        await manager.disconnect(workflow_id, websocket)
