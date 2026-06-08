@@ -12,6 +12,12 @@ bash scripts/up.sh
 
 Go to <http://localhost:8000/docs> for the API and <http://localhost:8080> for the Temporal UI.
 
+For websockets, there is a script to test the connections:
+
+```bash
+python scripts/connect_to_websockets/connect.py
+```
+
 ### Testing Services Independently
 
 If you need to use Python to test anything independently, set up a virtual environment:
