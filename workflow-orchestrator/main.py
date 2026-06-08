@@ -23,7 +23,7 @@ from shared.workflows import DocumentProcessingWorkflow
 class DocumentProcessingWorkflowImplementation:
 
     @workflow.run
-    async def run(self, document: str) -> str:
+    async def run(self, workflow_id: str, document: str) -> str:
 
         workflow.logger.info("Workflow started")
 
@@ -38,7 +38,7 @@ class DocumentProcessingWorkflowImplementation:
 
         generation_result = await workflow.execute_activity(
             generate_document,
-            parsed_result,
+            args=[workflow_id, parsed_result],
             task_queue=GENERATION_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=60),
         )

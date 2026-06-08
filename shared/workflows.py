@@ -6,5 +6,5 @@ class DocumentProcessingWorkflow:
     """
 
     @staticmethod
-    async def run(document: str) -> str:
+    async def run(workflow_id: str, document: str) -> str:
         return ""
