@@ -15,7 +15,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6378:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -64,8 +64,10 @@ services:
     container_name: generator-service
     depends_on:
       - temporal
+      - redis
     environment:
       - TEMPORAL_HOST=temporal:7233
+      - REDIS_URL=redis://redis:6379
 
   workflow-orchestrator:
     build:
@@ -87,5 +89,7 @@ services:
     depends_on:
       - temporal
       - workflow-orchestrator
+      - redis
     environment:
       - TEMPORAL_HOST=temporal:7233
+      - REDIS_URL=redis://redis:6379
