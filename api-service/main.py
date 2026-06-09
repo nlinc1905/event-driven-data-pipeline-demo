@@ -93,10 +93,11 @@ async def health():
 @app.get(
     "/ws-docs",
     response_class=FileResponse,
-    summary="AsyncAPI documentation",
+    summary="AsyncAPI YAML documentation",
     description="Returns the AsyncAPI YAML specification for the WebSocket API.",
+    include_in_schema=False,  # Hide from Swagger UI
 )
-async def ws_docs():
+async def ws_docs_yaml():
     return FileResponse(
         path=ASYNCAPI_DOCS_PATH,
         media_type="application/yaml",
@@ -104,7 +105,7 @@ async def ws_docs():
     )
 
 
-@app.get("/ws-docs/ui", response_class=FileResponse)
+@app.get("/docs/ws", response_class=FileResponse, include_in_schema=False)
 async def ws_docs_ui():
     return FileResponse(path=ASYNCAPI_UI_PATH, media_type="text/html")
 
