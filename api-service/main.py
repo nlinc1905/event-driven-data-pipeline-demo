@@ -40,6 +40,7 @@ class HealthResponse(BaseModel):
 temporal_client: Client | None = None
 
 ASYNCAPI_DOCS_PATH = Path(__file__).parent / "asyncapi-docs.yaml"
+ASYNCAPI_UI_PATH = Path(__file__).parent / "asyncapi-docs.html"
 
 
 # =============================================================================
@@ -101,6 +102,11 @@ async def ws_docs():
         media_type="application/yaml",
         filename="asyncapi-docs.yaml",
     )
+
+
+@app.get("/ws-docs/ui", response_class=FileResponse)
+async def ws_docs_ui():
+    return FileResponse(path=ASYNCAPI_UI_PATH, media_type="text/html")
 
 
 @app.post(

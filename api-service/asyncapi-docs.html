@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebSocket API Docs</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@asyncapi/react-component@1.0.0-next.54/styles/default.min.css"
+    />
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <script src="https://unpkg.com/@asyncapi/react-component@1.0.0-next.54/browser/standalone/index.js"></script>
+    <div id="asyncapi"></div>
+    <script>
+      AsyncApiStandalone.render(
+        {
+          schema: { url: "/ws-docs" },
+          config: { show: { sidebar: true, errors: true } },
+        },
+        document.getElementById("asyncapi")
+      );
+    </script>
+  </body>
+</html>
