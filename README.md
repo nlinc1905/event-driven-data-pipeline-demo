@@ -10,9 +10,13 @@ Use Docker:
 bash scripts/up.sh
 ```
 
-Go to <http://localhost:8000/docs> for the API and <http://localhost:8080> for the Temporal UI.
+Go to:
 
-For websockets, there is a script to test the connections:
+* <http://localhost:8000/docs> for the REST API docs
+* <http://localhost:8000/docs/ws> for the Websocket docs
+* <http://localhost:8080> for the Temporal UI
+
+For websockets, there is a supplemental script to test the connections and see how a front-end would consume them:
 
 ```bash
 python scripts/connect_to_websockets/connect.py
