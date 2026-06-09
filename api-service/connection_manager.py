@@ -106,6 +106,19 @@ class ConnectionManager:
             logger.warning(f"Failed to send to websocket: {e}")
             return False
 
+    async def send_status(self, workflow_id: str, status: str, message: str) -> bool:
+        """
+        Helper function to send a standardized status message to all connections for workflow_id.
+        Returns True if at least one connection was reached.
+
+        :param workflow_id: The ID of the workflow to send the status message to.
+        :param status: The status string (e.g. "processing", "completed", "failed").
+        :param message: The message to include with the status.
+
+        :return: True if at least one connection was reached, False otherwise.
+        """
+        return await self.send(workflow_id, {"type": "status", "status": status, "message": message})
+
     def is_connected(self, workflow_id: str) -> bool:
         """
         Returns True if there is at least one active connection for workflow_id on this instance. 

@@ -142,6 +142,8 @@ async def generate_document(websocket: WebSocket):
     await manager.connect(workflow_id, websocket)
 
     try:
+        await manager.send_status(workflow_id, "received", "Document received, generation started.")
+
         # TODO: replace the sleep and result below with a Temporal workflow.
         #
         #   handle = await temporal_client.start_workflow(

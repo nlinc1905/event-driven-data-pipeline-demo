@@ -22,6 +22,8 @@ channels:
       waits for completion via a Redis pub/sub channel, then pushes the result and
       closes the connection.
     messages:
+      statusEvent:
+        $ref: "#/components/messages/statusEvent"
       documentResult:
         $ref: "#/components/messages/documentResult"
 
@@ -40,6 +42,13 @@ operations:
 
 components:
   messages:
+    statusEvent:
+      name: statusEvent
+      title: Status Event
+      summary: Emitted by the server when a notable stage in processing is reached.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/statusEvent"
     documentResult:
       name: documentResult
       title: Document Generation Result
@@ -49,6 +58,24 @@ components:
         $ref: "#/components/schemas/documentResult"
 
   schemas:
+    statusEvent:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        type:
+          type: string
+          enum: [status]
+        status:
+          type: string
+          enum: [received]
+          description: Machine-readable stage identifier. Extend as new stages are added.
+        message:
+          type: string
+          description: Human-readable description of the current stage.
+          examples:
+            - "Document received, generation started"
     documentResult:
       type: object
       required:

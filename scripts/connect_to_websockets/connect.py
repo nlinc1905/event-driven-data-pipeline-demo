@@ -5,8 +5,11 @@ import json
 
 async def generate():
     async with websockets.connect("ws://localhost:8000/generate") as ws:
-        result = json.loads(await ws.recv())
-        print("Document ready:", result)
+        async for message in ws:
+            data = json.loads(message)
+            print("Received:", data)
+            if data.get("status") in ("completed", "failed"):
+                break
 
 
 asyncio.run(generate())
