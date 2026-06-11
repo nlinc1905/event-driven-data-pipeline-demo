@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy submodule contents
 COPY shared ./shared
 
+# Install shared dependencies
+RUN pip install --no-cache-dir -r shared/requirements.txt
+
 # Copy worker code
 COPY workflow-orchestrator/ .
 

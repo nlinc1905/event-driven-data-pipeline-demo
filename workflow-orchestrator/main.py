@@ -12,12 +12,60 @@ from shared.queues import (
     WORKFLOW_TASK_QUEUE,
 )
 from shared.temporal_client import connect_to_temporal
-from shared.workflows import DocumentProcessingWorkflow
+from shared.activities.status import publish_status
+from shared.workflows import DocumentGenerationWorkflow, DocumentProcessingWorkflow
 
 
 # =============================================================================
-# WORKFLOW
+# WORKFLOWS
 # =============================================================================
+
+@workflow.defn(name=DocumentGenerationWorkflow.__name__)
+class DocumentGenerationWorkflowImplementation:
+
+    @workflow.run
+    async def run(self, workflow_id: str, document: str) -> str:
+
+        # Send a status update to the API service via a workflow signal.
+        await workflow.execute_activity(
+            publish_status,
+            args=[workflow_id, "Workflow started"],
+            task_queue=WORKFLOW_TASK_QUEUE,
+            start_to_close_timeout=timedelta(seconds=5),
+        )
+
+        # Execute the parsing activity in a separate task queue with a timeout.
+        # Then send another status update when parsing is complete.
+        parsed_result = await workflow.execute_activity(
+            parse_document,
+            document,
+            task_queue=PARSING_TASK_QUEUE,
+            start_to_close_timeout=timedelta(seconds=30),
+        )
+        await workflow.execute_activity(
+            publish_status,
+            args=[workflow_id, "Parsing completed"],
+            task_queue=WORKFLOW_TASK_QUEUE,
+            start_to_close_timeout=timedelta(seconds=5),
+        )
+
+        # Execute the generation activity in a separate task queue with a timeout.
+        # Then send another status update when generation is complete.
+        generation_result = await workflow.execute_activity(
+            generate_document,
+            args=[workflow_id, parsed_result],
+            task_queue=GENERATION_TASK_QUEUE,
+            start_to_close_timeout=timedelta(seconds=60),
+        )
+        await workflow.execute_activity(
+            publish_status,
+            args=[workflow_id, "Generation completed"],
+            task_queue=WORKFLOW_TASK_QUEUE,
+            start_to_close_timeout=timedelta(seconds=5),
+        )
+
+        return generation_result
+
 
 @workflow.defn(name=DocumentProcessingWorkflow.__name__)
 class DocumentProcessingWorkflowImplementation:
@@ -59,7 +107,11 @@ async def main():
     worker = Worker(
         client,
         task_queue=WORKFLOW_TASK_QUEUE,
-        workflows=[DocumentProcessingWorkflowImplementation],
+        workflows=[
+            DocumentProcessingWorkflowImplementation,
+            DocumentGenerationWorkflowImplementation,
+    ],
+        activities=[publish_status],
     )
 
     print("Workflow orchestrator started")

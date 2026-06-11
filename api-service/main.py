@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,11 +11,13 @@ from temporalio.client import Client, WorkflowHandle
 
 from shared.queues import WORKFLOW_TASK_QUEUE
 from shared.temporal_client import connect_to_temporal
-from shared.workflows import DocumentProcessingWorkflow
+from shared.workflows import DocumentGenerationWorkflow, DocumentProcessingWorkflow
 
 from connection_manager import manager
-from redis_client import REDIS_CHANNEL, connect_to_redis
+from redis_client import REDIS_CHANNEL, connect_to_redis, connect_to_pubsub_redis
 
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # PYDANTIC MODELS
@@ -56,7 +59,12 @@ async def lifespan(app: FastAPI):
     print("Connected to Temporal")
 
     redis = await connect_to_redis()
-    asyncio.create_task(manager.start_subscriber(redis, REDIS_CHANNEL))
+    # task = asyncio.create_task(manager.start_subscriber(redis, REDIS_CHANNEL))
+    pubsub_redis = await connect_to_pubsub_redis()
+    task = asyncio.create_task(manager.start_subscriber(pubsub_redis, REDIS_CHANNEL))
+    task.add_done_callback(
+        lambda t: logger.error(f"Subscriber task exited: {t.exception()}") if not t.cancelled() and t.exception() else None
+    )
     print(f"Started Redis subscriber on channel: {REDIS_CHANNEL}")
 
     yield
@@ -136,30 +144,44 @@ async def parse_document(request: ParseRequest):
 
 @app.websocket("/generate")
 async def generate_document(websocket: WebSocket):
+    """
+    WebSocket endpoint to receive document generation requests and send status updates.
+    The client should send a JSON message with the following format:
+    {
+        "document": "The document content to be processed"
+    }
 
+    The server will respond with status updates and the final generated document through the WebSocket connection.
+    """
+    # Generate a unique workflow ID for the workflow to be processed in this WebSocket connection
     workflow_id = f"document-workflow-{uuid.uuid4()}"
 
+    # Connect the WebSocket to the connection manager with the workflow ID
     await manager.connect(workflow_id, websocket)
 
     try:
-        await manager.send_status(workflow_id, "received", "Document received, generation started.")
+        await manager.send_status(
+            workflow_id, 
+            "received", 
+            f"Document received, generation started with workflow ID {workflow_id}."
+        )
 
-        # TODO: replace the sleep and result below with a Temporal workflow.
-        #
-        #   handle = await temporal_client.start_workflow(
-        #       DocumentProcessingWorkflow.__name__,
-        #       id=workflow_id,
-        #       task_queue=WORKFLOW_TASK_QUEUE,
-        #   )
-        #   result = await handle.result()
+        # Start the Temporal workflow to process the document
+        await temporal_client.start_workflow(
+            DocumentGenerationWorkflow.__name__,
+            args=[workflow_id, "document-placeholder"],
+            id=workflow_id,
+            task_queue=WORKFLOW_TASK_QUEUE,
+        )
 
-        await asyncio.sleep(20)
-        result = {"status": "completed", "document": "placeholder"}
-
-        await manager.send(workflow_id, result)
+        # Hold the connection open until the client disconnects.
+        # All further messages arrive via Redis pub/sub through the connection manager, including the result, 
+        # so we do not need to await the workflow result here.
+        while True:
+            await websocket.receive_text()
 
     except WebSocketDisconnect:
-        print("Client disconnected before document generation completed")
+        print(f"[{workflow_id}] Client disconnected")
 
     finally:
         await manager.disconnect(workflow_id, websocket)

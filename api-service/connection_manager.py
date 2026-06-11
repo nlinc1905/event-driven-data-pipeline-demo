@@ -56,20 +56,30 @@ class ConnectionManager:
         :param redis: An instance of the Redis client to use for subscribing.
         :param channel: The Redis channel to subscribe to for workflow completion events.
         """
-        pubsub = redis.pubsub()
-        await pubsub.subscribe(channel)
-        logger.info(f"Subscribed to Redis channel: {channel}")
+        try:
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(channel)
+            logger.info(f"Subscribed to Redis channel: {channel}")
 
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
-            try:
-                payload = json.loads(message["data"])
-                workflow_id = payload["workflow_id"]
-                if self.is_connected(workflow_id):
-                    await self.send(workflow_id, payload["result"])
-            except (KeyError, json.JSONDecodeError) as e:
-                logger.warning(f"Malformed message on channel {channel}: {e}")
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+                try:
+                    payload = json.loads(message["data"])
+                    workflow_id = payload["workflow_id"]
+
+                    # Lines to ensure we only attempt to send messages for workflow_ids that have active connections on this instance.
+                    logger.info(f"Redis message received for workflow_id: {workflow_id}")
+                    logger.info(f"Active connections: {list(self._connections.keys())}")
+
+                    if self.is_connected(workflow_id):
+                        await self.send(workflow_id, payload["result"])
+                    else:
+                        logger.warning(f"No active connection found for workflow_id: {workflow_id}")
+                except (KeyError, json.JSONDecodeError) as e:
+                    logger.warning(f"Malformed message on channel {channel}: {e}")
+        except Exception as e:
+            logger.error(f"Redis subscriber crashed: {e}", exc_info=True)
 
     async def send(self, workflow_id: str, message: dict[str, Any]) -> bool:
         """

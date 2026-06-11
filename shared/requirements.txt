@@ -1,1 +1,2 @@
+redis==8.0.0
 temporalio==1.27.2
