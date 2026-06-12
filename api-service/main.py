@@ -151,8 +151,7 @@ async def parse_document(request: ParseRequest):
         raise RuntimeError("Temporal client not initialized")
 
     # Start the Temporal workflow to process the document.
-    # This workflow will run asynchronously in the background but will not send updates.
-    # Instead, it will publish the final result to Redis when complete.
+    # The workflow runs asynchronously and publishes status updates and the final result to Redis.
     handle: WorkflowHandle = await temporal_client.start_workflow(
         DocumentProcessingWorkflow.__name__,
         args=[workflow_id, request.document],
