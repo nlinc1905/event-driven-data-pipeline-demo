@@ -13,15 +13,15 @@ from shared.queues import (
 )
 from shared.clients.temporal_client import connect_to_temporal
 from shared.activities.status import publish_status
-from shared.workflows import DocumentGenerationWorkflow, DocumentProcessingWorkflow
+from shared.workflows import DocumentProcessingWorkflow
 
 
 # =============================================================================
 # WORKFLOWS
 # =============================================================================
 
-@workflow.defn(name=DocumentGenerationWorkflow.__name__)
-class DocumentGenerationWorkflowImplementation:
+@workflow.defn(name=DocumentProcessingWorkflow.__name__)
+class DocumentProcessingWorkflowImplementation:
 
     @workflow.run
     async def run(self, workflow_id: str, document: str) -> str:
@@ -67,35 +67,6 @@ class DocumentGenerationWorkflowImplementation:
         return generation_result
 
 
-@workflow.defn(name=DocumentProcessingWorkflow.__name__)
-class DocumentProcessingWorkflowImplementation:
-
-    @workflow.run
-    async def run(self, workflow_id: str, document: str) -> str:
-
-        workflow.logger.info("Workflow started")
-
-        parsed_result = await workflow.execute_activity(
-            parse_document,
-            document,
-            task_queue=PARSING_TASK_QUEUE,
-            start_to_close_timeout=timedelta(seconds=30),
-        )
-
-        workflow.logger.info("Parsing completed")
-
-        generation_result = await workflow.execute_activity(
-            generate_document,
-            args=[workflow_id, parsed_result],
-            task_queue=GENERATION_TASK_QUEUE,
-            start_to_close_timeout=timedelta(seconds=60),
-        )
-
-        workflow.logger.info("Generation completed")
-
-        return generation_result
-
-
 # =============================================================================
 # WORKER
 # =============================================================================
@@ -109,8 +80,7 @@ async def main():
         task_queue=WORKFLOW_TASK_QUEUE,
         workflows=[
             DocumentProcessingWorkflowImplementation,
-            DocumentGenerationWorkflowImplementation,
-    ],
+        ],
         activities=[publish_status],
     )
 

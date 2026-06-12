@@ -12,7 +12,7 @@ from temporalio.client import Client, WorkflowHandle
 from shared.queues import WORKFLOW_TASK_QUEUE
 from shared.clients.redis_client import REDIS_CHANNEL, connect_to_redis, connect_to_pubsub_redis
 from shared.clients.temporal_client import connect_to_temporal
-from shared.workflows import DocumentGenerationWorkflow, DocumentProcessingWorkflow
+from shared.workflows import DocumentProcessingWorkflow
 
 from connection_manager import manager
 
@@ -193,7 +193,7 @@ async def generate_document(websocket: WebSocket):
 
         # Start the Temporal workflow to process the document
         await temporal_client.start_workflow(
-            DocumentGenerationWorkflow.__name__,
+            DocumentProcessingWorkflow.__name__,
             args=[workflow_id, "document-placeholder"],
             id=workflow_id,
             task_queue=WORKFLOW_TASK_QUEUE,
