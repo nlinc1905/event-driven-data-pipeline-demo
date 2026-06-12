@@ -13,8 +13,8 @@ REDIS_CHANNEL = "doc:results"
 async def publish_status(workflow_id: str, message: str) -> None:
     """
     Activity to publish status updates to Redis.
-    The API service subscribes to these updates to receive real-time status information 
-    from temporal workflows.
+    The API service subscribes to these updates via the Redis channel, 
+    to receive real-time status information from temporal workflows.
 
     :param workflow_id: The ID of the workflow sending the status update.
     :param message: The status message to be published.
