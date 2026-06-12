@@ -26,7 +26,7 @@ class DocumentProcessingWorkflowImplementation:
     @workflow.run
     async def run(self, workflow_id: str, document: str) -> str:
 
-        # Send a status update to the API service via a workflow signal.
+        # Send a status update to the API service by running an activity that publishes to Redis.
         await workflow.execute_activity(
             publish_status,
             args=[workflow_id, "Workflow started"],
