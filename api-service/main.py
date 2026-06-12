@@ -10,11 +10,11 @@ from pydantic import BaseModel, Field
 from temporalio.client import Client, WorkflowHandle
 
 from shared.queues import WORKFLOW_TASK_QUEUE
-from shared.temporal_client import connect_to_temporal
+from shared.clients.redis_client import REDIS_CHANNEL, connect_to_redis, connect_to_pubsub_redis
+from shared.clients.temporal_client import connect_to_temporal
 from shared.workflows import DocumentGenerationWorkflow, DocumentProcessingWorkflow
 
 from connection_manager import manager
-from redis_client import REDIS_CHANNEL, connect_to_redis, connect_to_pubsub_redis
 
 
 # =============================================================================

@@ -2,17 +2,13 @@ import asyncio
 import json
 import os
 
-from redis.asyncio import Redis
 from temporalio import activity
 from temporalio.worker import Worker
 
 from shared.activities.generation import generate_document
 from shared.queues import GENERATION_TASK_QUEUE
-from shared.temporal_client import connect_to_temporal
-
-
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-REDIS_CHANNEL = "doc:results"
+from shared.clients.redis_client import REDIS_CHANNEL, connect_to_redis, connect_to_pubsub_redis
+from shared.clients.temporal_client import connect_to_temporal
 
 
 # =============================================================================
@@ -27,8 +23,10 @@ async def generate_document_implementation(workflow_id: str, document: str) -> s
     - summarization
     - content generation
     """
-
     print(f"[Generator] Received document: {document}")
+
+    # Start a Redis client to create connections from a pool for immediate request/response actions
+    redis_client = await connect_to_redis()
 
     await asyncio.sleep(20)
 
@@ -36,15 +34,14 @@ async def generate_document_implementation(workflow_id: str, document: str) -> s
 
     print(f"[Generator] Generated result: {generated}")
 
-    redis = Redis.from_url(REDIS_URL, decode_responses=True)
     try:
-        await redis.publish(REDIS_CHANNEL, json.dumps({
+        await redis_client.publish(REDIS_CHANNEL, json.dumps({
             "workflow_id": workflow_id,
             "result": {"status": "completed", "document": generated},
         }))
         print(f"[Generator] Published result for workflow: {workflow_id}")
     finally:
-        await redis.aclose()
+        await redis_client.aclose()
 
     return generated
 

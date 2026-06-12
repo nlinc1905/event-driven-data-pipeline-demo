@@ -5,7 +5,7 @@ from temporalio.worker import Worker
 
 from shared.activities.parsing import parse_document
 from shared.queues import PARSING_TASK_QUEUE
-from shared.temporal_client import connect_to_temporal
+from shared.clients.temporal_client import connect_to_temporal
 
 # =============================================================================
 # PARSING ACTIVITY

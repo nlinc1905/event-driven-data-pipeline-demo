@@ -11,7 +11,7 @@ from shared.queues import (
     PARSING_TASK_QUEUE,
     WORKFLOW_TASK_QUEUE,
 )
-from shared.temporal_client import connect_to_temporal
+from shared.clients.temporal_client import connect_to_temporal
 from shared.activities.status import publish_status
 from shared.workflows import DocumentGenerationWorkflow, DocumentProcessingWorkflow
 
