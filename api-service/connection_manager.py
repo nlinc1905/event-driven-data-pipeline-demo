@@ -94,7 +94,7 @@ class ConnectionManager:
                         # Send the message's result field
                         await self.send(workflow_id, payload["result"])
                     else:
-                        logger.warning(f"No active connection found for workflow_id: {workflow_id}")
+                        logger.debug(f"No active connection found for workflow_id: {workflow_id}")
                 except (KeyError, json.JSONDecodeError) as e:
                     logger.warning(f"Malformed message on channel {channel}: {e}")
         except Exception as e:
