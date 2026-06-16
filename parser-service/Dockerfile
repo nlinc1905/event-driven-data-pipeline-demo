@@ -2,6 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install shared package and its dependencies
+COPY shared ./shared
+RUN pip install ./shared
+
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -19,9 +23,6 @@ COPY parser-service/requirements-pytorch.txt .
 RUN pip install --no-cache-dir -r requirements-pytorch.txt
 COPY parser-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy submodule contents
-COPY shared ./shared
 
 # Copy worker code
 COPY parser-service/ .

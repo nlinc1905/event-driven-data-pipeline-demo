@@ -12,14 +12,20 @@ logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     """
-    Manages active WebSocket connections for the document generation service.
+    Manages active WebSocket connections. Connections are stored in-memory on each instance 
+    of the API service and keyed by workflow_id. When a temporal workflow completes, 
+    it publishes a message to Redis with the workflow_id, which is then picked up by the subscriber 
+    running on each instance. The subscriber checks if there are any active connections for that workflow_id 
+    on that instance, and if so, forwards the message to those connections. This allows for targeted messaging 
+    to the correct WebSocket clients when a workflow completes, without needing to maintain a centralized registry 
+    of connections.
 
-    Connections are keyed by workflow_id, allowing targeted messaging when a
-    Temporal workflow completes. A single workflow_id may have multiple
-    connections (e.g. the same user on two tabs).
+    A single workflow_id may have multiple connections (e.g. the same user on two tabs). 
+    TODO: figure out what happens if a workflow has multiple connections
     """
     def __init__(self):
-        # workflow_id -> list of active WebSocket connections on THIS instance
+        # Store an in-memory mapping of workflow_id to a list of active WebSocket connections for that workflow,
+        # on this instance.
         self._connections: dict[str, list[WebSocket]] = {}
 
     async def connect(self, workflow_id: str, websocket: WebSocket) -> None:
@@ -31,11 +37,15 @@ class ConnectionManager:
         """
         await websocket.accept()
         self._connections.setdefault(workflow_id, []).append(websocket)
-        logger.info(f"[{workflow_id}] Client connected ({self._count(workflow_id)} on this instance)")
+        logger.info(
+            f"Client connected for workflow ID: [{workflow_id}], "
+            f"with {self._count(workflow_id)} websocket connections on this instance."
+        )
 
     async def disconnect(self, workflow_id: str, websocket: WebSocket) -> None:
         """
-        Remove a WebSocket connection from the manager. If no connections remain for workflow_id, remove the key.
+        Remove a WebSocket connection from the manager. If no connections remain for workflow_id, remove the key
+        from the self._connections dict.
 
         :param workflow_id: The ID of the workflow associated with the connection.
         :param websocket: The WebSocket connection to remove.
@@ -49,31 +59,50 @@ class ConnectionManager:
 
     async def start_subscriber(self, redis: Redis, channel: str) -> None:
         """
-        Run as a background task on startup. Listens for workflow completion
-        events published by the generator service and forwards them to any
-        local WebSocket connections for that workflow_id.
+        The API lifespan starts a background task that runs this subscriber function. 
+        This function listens for messages on the specified Redis channel. 
+        Messages should always contain workflow IDs. 
+        When a message is received, this function checks if there are any local, active WebSocket connections 
+        for the workflow_id on this instance. If there are, it forwards the message to those connections.
 
         :param redis: An instance of the Redis client to use for subscribing.
-        :param channel: The Redis channel to subscribe to for workflow completion events.
+        :param channel: The Redis channel to subscribe to.
         """
-        pubsub = redis.pubsub()
-        await pubsub.subscribe(channel)
-        logger.info(f"Subscribed to Redis channel: {channel}")
+        try:
+            # Subscribe to the Redis channel via an infinitely long-lived connection.
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(channel)
+            logger.info(f"Subscribed to Redis channel: {channel}")
 
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
-            try:
-                payload = json.loads(message["data"])
-                workflow_id = payload["workflow_id"]
-                if self.is_connected(workflow_id):
-                    await self.send(workflow_id, payload["result"])
-            except (KeyError, json.JSONDecodeError) as e:
-                logger.warning(f"Malformed message on channel {channel}: {e}")
+            # Listen for messages
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+                # When a message is received, attempt to parse it and forward it to any active 
+                # WebSocket connections for the workflow_id included in the message.
+                try:
+                    payload = json.loads(message["data"])
+                    workflow_id = payload["workflow_id"]
+
+                    logger.debug(f"Redis message received for workflow_id: {workflow_id}")
+                    logger.debug(
+                        f"Active websocket connections for the workflow on this instance: "
+                        f"{list(self._connections.keys())}"
+                    )
+
+                    if self.is_connected(workflow_id):
+                        # Send the message's result field
+                        await self.send(workflow_id, payload["result"])
+                    else:
+                        logger.debug(f"No active connection found for workflow_id: {workflow_id}")
+                except (KeyError, json.JSONDecodeError) as e:
+                    logger.warning(f"Malformed message on channel {channel}: {e}")
+        except Exception as e:
+            logger.error(f"Redis subscriber crashed: {e}", exc_info=True)
 
     async def send(self, workflow_id: str, message: dict[str, Any]) -> bool:
         """
-        Send a message to all local connections for workflow_id.
+        Send a message to all local websocket connections for the workflow_id.
         Returns True if at least one connection was reached.
 
         :param workflow_id: The ID of the workflow to send the message to.
@@ -109,7 +138,9 @@ class ConnectionManager:
     async def send_status(self, workflow_id: str, status: str, message: str) -> bool:
         """
         Helper function to send a standardized status message to all connections for workflow_id.
-        Returns True if at least one connection was reached.
+        Returns True if at least one connection was reached. 
+        Status messages facilitate communication between a temporal workflow and 
+        websocket clients by providing a consistent format for conveying workflow status updates.
 
         :param workflow_id: The ID of the workflow to send the status message to.
         :param status: The status string (e.g. "processing", "completed", "failed").
@@ -140,5 +171,5 @@ class ConnectionManager:
         return len(self._connections.get(workflow_id, []))
 
 
-# Single shared instance imported by the route module
+# Single shared instance to be imported by the API root
 manager = ConnectionManager()

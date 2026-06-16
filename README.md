@@ -2,6 +2,8 @@
 
 Example of an event-driven data pipeline, where events are triggered by API requests. Events are processed asynchronously with Temporal. Workflows arrange different processing steps, based on what needs to be done, where each processing step is a micro-service with its own infrastructure.
 
+There are two ways to trigger temporal workflows. The first uses a REST endpoint. The second uses a websocket. Both run a sample document processing pipeline. The purpose is to show the differences between them.
+
 ## How to Run Locally
 
 Use Docker:
