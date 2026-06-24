@@ -1,3 +1,5 @@
+from activities.parsing import ParseDocumentRequest
+
 
 class DocumentProcessingWorkflow:
     """
@@ -6,5 +8,5 @@ class DocumentProcessingWorkflow:
     """
 
     @staticmethod
-    async def run(workflow_id: str, document: str) -> str:
+    async def run(workflow_id: str, document: ParseDocumentRequest) -> str:
         return ""

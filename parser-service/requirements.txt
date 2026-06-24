@@ -1,2 +1,3 @@
 docling==2.96.1
 opencv-python-headless==4.13.0.92
+streamlit==1.58.0

@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from temporalio.client import Client, WorkflowHandle
 
+from shared.activities import ParseDocumentRequest
 from shared.queues import WORKFLOW_TASK_QUEUE
 from shared.clients.redis_client import REDIS_CHANNEL, connect_to_redis, connect_to_pubsub_redis
 from shared.clients.temporal_client import connect_to_temporal
@@ -152,9 +153,13 @@ async def parse_document(request: ParseRequest):
 
     # Start the Temporal workflow to process the document.
     # The workflow runs asynchronously and publishes status updates and the final result to Redis.
+    formatted_request = ParseDocumentRequest(
+        document_id="placeholder_id", 
+        pdf_path=request.document
+    )
     handle: WorkflowHandle = await temporal_client.start_workflow(
         DocumentProcessingWorkflow.__name__,
-        args=[workflow_id, request.document],
+        args=[workflow_id, formatted_request],
         id=workflow_id,
         task_queue=WORKFLOW_TASK_QUEUE,
     )
@@ -191,9 +196,13 @@ async def generate_document(websocket: WebSocket):
         )
 
         # Start the Temporal workflow to process the document
+        formatted_request = ParseDocumentRequest(
+            document_id="placeholder_id", 
+            pdf_path="placeholder_path.pdf"
+        )
         await temporal_client.start_workflow(
             DocumentProcessingWorkflow.__name__,
-            args=[workflow_id, "document-placeholder"],
+            args=[workflow_id, formatted_request],
             id=workflow_id,
             task_queue=WORKFLOW_TASK_QUEUE,
         )

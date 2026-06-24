@@ -58,6 +58,20 @@ services:
     environment:
       - TEMPORAL_HOST=temporal:7233
 
+  parser-service-ui:
+    build:
+      context: .
+      dockerfile: ./parser-service/Dockerfile
+    container_name: parser-service-ui
+    depends_on:
+      - parser-service
+    command: >
+      streamlit run streamlit_app/app.py
+      --server.port=8501
+      --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+
   generator-service:
     build:
       context: .
