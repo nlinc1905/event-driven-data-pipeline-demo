@@ -22,6 +22,7 @@ Go to:
 * <http://localhost:8000/docs> for the REST API docs
 * <http://localhost:8000/docs/ws> for the Websocket docs
 * <http://localhost:8080> for the Temporal UI
+* <http://localhost:8501> for the Streamlit parsing app
 
 For websockets, there is a supplemental script to test the connections and see how a front-end would consume them:
 

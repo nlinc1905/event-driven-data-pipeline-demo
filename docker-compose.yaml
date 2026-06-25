@@ -57,6 +57,8 @@ services:
       - temporal
     environment:
       - TEMPORAL_HOST=temporal:7233
+    volumes:
+      - documents:/documents
 
   parser-service-ui:
     build:
@@ -83,6 +85,8 @@ services:
     environment:
       - TEMPORAL_HOST=temporal:7233
       - REDIS_URL=redis://redis:6379
+    volumes:
+      - documents:/documents
 
   workflow-orchestrator:
     build:
@@ -108,3 +112,8 @@ services:
     environment:
       - TEMPORAL_HOST=temporal:7233
       - REDIS_URL=redis://redis:6379
+    volumes:
+      - documents:/documents
+
+volumes:
+  documents:

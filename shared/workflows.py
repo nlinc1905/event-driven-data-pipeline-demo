@@ -1,4 +1,4 @@
-from activities.parsing import ParseDocumentRequest
+from shared.activities.parsing import ParseDocumentRequest
 
 
 class DocumentProcessingWorkflow:

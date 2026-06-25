@@ -1,3 +1,4 @@
+import markdown
 import tempfile
 
 import streamlit as st
@@ -36,17 +37,25 @@ if uploaded_file:
         result = parse_pdf(uploaded_file.read())
 
     # Display the JSON and Markdown results in tabs
-    tab1, tab2 = st.tabs(
-        ["JSON", "Markdown"]
+    tab1, tab2, tab3 = st.tabs(
+        ["Markdown", "JSON", "HTML"]
     )
 
     with tab1:
         with st.container(height=600):
-            st.json(result)
+            st.markdown(result["full_markdown"])
 
     with tab2:
         with st.container(height=600):
-            st.markdown(result["full_markdown"])
+            st.json(result)
+
+    with tab3:
+        with st.container(height=600):
+            html = markdown.markdown(
+                result["full_markdown"],
+                extensions=["tables"]
+            )
+            st.html(html)
 
     st.download_button(
         label="Download Markdown",

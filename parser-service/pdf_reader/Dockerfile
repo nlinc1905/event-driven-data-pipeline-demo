@@ -1,4 +1,4 @@
-# file: Dockerfile
+# Use this dockerfile to test run the extractor with a canned file
 
 FROM python:3.11-slim
 
