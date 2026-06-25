@@ -225,16 +225,17 @@ async def parse_document(
             status_code=500,
             detail=f"Failed to save uploaded PDF file: {str(e)}"
         )
-    formatted_request = ParseDocumentRequest(
-        document_id=document_id, 
-        pdf_path=pdf_path
-    )
 
     # Generate a unique ID for the workflow, to be used by Temporal
     workflow_id = f"document-workflow-{uuid.uuid4()}"
 
     # Start the Temporal workflow to process the document.
     # The workflow runs asynchronously and publishes status updates and the final result to Redis.
+    formatted_request = ParseDocumentRequest(
+        workflow_id=workflow_id,
+        document_id=document_id, 
+        pdf_path=pdf_path
+    )
     handle: WorkflowHandle = await temporal_client.start_workflow(
         DocumentProcessingWorkflow.__name__,
         args=[workflow_id, formatted_request],
@@ -277,9 +278,15 @@ async def workflow_status(websocket: WebSocket):
         # where the workflow finished between POST /parse and WS connect.
         cached = await redis_client.get(f"result:{workflow_id}")
         if cached:
-            await websocket.accept()   # must accept before we can send a close
             await websocket.send_json(json.loads(cached))
             await websocket.close(code=1000)
+            # Drain any remaining messages from the client so the
+            # close handshake completes before the handler returns.
+            try:
+                while True:
+                    await asyncio.wait_for(websocket.receive_text(), timeout=1)
+            except (asyncio.TimeoutError, WebSocketDisconnect, RuntimeError):
+                pass
             return
 
         # Register with the connection manager and send ack.
@@ -313,86 +320,3 @@ async def workflow_status(websocket: WebSocket):
     finally:
         if workflow_id:
             await manager.disconnect(workflow_id, websocket)
-
-
-# @app.websocket("/generate")
-# async def generate_document(websocket: WebSocket):
-#     """
-#     WebSocket endpoint to receive document generation requests and send status updates.
-#     The client should send a JSON message with the following format:
-#     {
-#         "document_id": "The ID of the document to be processed",
-#         "pdf_path": "The path to the PDF file to be processed",
-#     }
-
-#     The server will respond with status updates and the final generated document through the WebSocket connection.
-#     """
-#     # Generate a unique ID for the workflow, to be used by both Temporal and Redis pub/sub 
-#     # to correlate messages with the correct WebSocket connection.
-#     workflow_id = f"document-workflow-{uuid.uuid4()}"
-
-#     # Connect the WebSocket to the connection manager with the workflow ID
-#     await manager.connect(workflow_id, websocket)
-
-#     # Let the client know that the connection has been established and the workflow has started
-#     await manager.send_status(
-#         workflow_id, 
-#         "received", 
-#         f"Request received. Assigned workflow ID {workflow_id}"
-#     )
-
-#     try:
-#         # Validate the payload in the incoming message
-#         payload = await websocket.receive_json()
-#         document_id = payload.get("document_id")
-#         document = payload.get("document")
-#         if not document:
-#             await manager.send_error(
-#                 workflow_id,
-#                 f"Workflow {workflow_id} failed: No 'document' field was provided in the JSON payload."
-#             )
-#             return
-
-#         await manager.send_status(
-#             workflow_id, 
-#             "validated", 
-#             f"Document payload validated. Starting workflow..."
-#         )
-
-#         # Start the Temporal workflow to process the document
-#         formatted_request = ParseDocumentRequest(
-#             document_id="placeholder_id", 
-#             pdf_path="placeholder_path.pdf"
-#         )
-#         await temporal_client.start_workflow(
-#             DocumentProcessingWorkflow.__name__,
-#             args=[workflow_id, formatted_request],
-#             id=workflow_id,
-#             task_queue=WORKFLOW_TASK_QUEUE,
-#         )
-
-#         # Hold the connection open until the client disconnects.
-#         # All further messages arrive via Redis pub/sub through the connection manager, including the result, 
-#         # so we do not need to await the workflow result here.
-#         while True:
-#             await websocket.receive_text()
-
-#     except JSONDecodeError:
-#         await manager.send_error(
-#             workflow_id,
-#             f"Workflow {workflow_id} failed: Invalid JSON format in request"
-#         )
-#         return
-
-#     except Exception as e:
-#         await manager.send_error(
-#             workflow_id,
-#             f"Workflow {workflow_id} failed to start: {str(e)}"
-#         )
-#         return
-
-#     except WebSocketDisconnect:
-#         print(f"[{workflow_id}] Client disconnected")
-
-#     finally:
-#         await manager.disconnect(workflow_id, websocket)

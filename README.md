@@ -7,7 +7,7 @@ An API with REST and WebSocket endpoints that trigger asynchronous workflows for
 
 The workflows are managed by a workflow orchestrator service. The Temporal library is used to defined workflows and their activities. The workflow orchestrator assigns activities to workers.
 
-There are two ways to trigger temporal workflows. The first uses a REST endpoint. The second uses a WebSocket. Both run a sample document processing pipeline. The purpose is to show the differences between them.
+There is currently 1 main workflow for document processing that fires parsing activities first, then generation activities. It is triggered by the /parse endpoint and can be tracked by calling the /workflow-status websocket for a given workflow ID (the workflow ID is returned byt he /parse endpoint).
 
 ## How to Run Locally
 

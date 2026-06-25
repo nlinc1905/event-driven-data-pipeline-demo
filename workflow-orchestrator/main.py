@@ -29,7 +29,7 @@ class DocumentProcessingWorkflowImplementation:
         # Send a status update to the API service by running an activity that publishes to Redis.
         await workflow.execute_activity(
             publish_status,
-            args=[workflow_id, "Workflow started"],
+            args=[workflow_id, "processing", "Workflow started"],
             task_queue=WORKFLOW_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=5),
         )
@@ -42,12 +42,6 @@ class DocumentProcessingWorkflowImplementation:
             task_queue=PARSING_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=30),
         )
-        await workflow.execute_activity(
-            publish_status,
-            args=[workflow_id, "Parsing completed"],
-            task_queue=WORKFLOW_TASK_QUEUE,
-            start_to_close_timeout=timedelta(seconds=5),
-        )
 
         # Execute the generation activity in a separate task queue with a timeout.
         # Then send another status update when generation is complete.
@@ -57,9 +51,12 @@ class DocumentProcessingWorkflowImplementation:
             task_queue=GENERATION_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=60),
         )
+
+        # Send a final message with status "complete", which is the status the 
+        # websocket listener is waiting for to terminate the connection.
         await workflow.execute_activity(
             publish_status,
-            args=[workflow_id, "Generation completed"],
+            args=[workflow_id, "complete", "Workflow completed successfully", {"document": generation_result}],
             task_queue=WORKFLOW_TASK_QUEUE,
             start_to_close_timeout=timedelta(seconds=5),
         )

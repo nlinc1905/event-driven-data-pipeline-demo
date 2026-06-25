@@ -19,5 +19,5 @@ async def listen(workflow_id: str, websocket_endpoint: str):
             print("Server closed connection cleanly")
 
 
-workflow_id = "document-workflow-debcb901-234f-44e7-bddb-c38264097915"
+workflow_id = "document-workflow-f4c201db-811a-45aa-83a0-1b123ecdfd5a"
 asyncio.run(listen(workflow_id, "workflow-status"))

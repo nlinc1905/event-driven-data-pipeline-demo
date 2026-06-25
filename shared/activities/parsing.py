@@ -5,12 +5,14 @@ from temporalio import activity
 
 @dataclass
 class ParseDocumentRequest:
+    workflow_id: str
     document_id: str
     pdf_path: str
 
 
 @dataclass
 class ParseDocumentResponse:
+    workflow_id: str
     document_id: str
     markdown: str
     metadata: dict
