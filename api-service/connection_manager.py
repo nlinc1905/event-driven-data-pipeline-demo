@@ -5,9 +5,11 @@ from typing import Any
 
 from fastapi import WebSocket
 from redis.asyncio import Redis
+from starlette.websockets import WebSocketState
 
 
 logger = logging.getLogger(__name__)
+TERMINAL_STATUSES = {"complete", "error"}
 
 
 class ConnectionManager:
@@ -35,7 +37,9 @@ class ConnectionManager:
         :param workflow_id: The ID of the workflow associated with the connection.
         :param websocket: The WebSocket connection to add.
         """
-        await websocket.accept()
+        # If the WebSocket is not already connected, accept the connection before adding it to the manager.
+        if websocket.client_state != WebSocketState.CONNECTED:
+            await websocket.accept()
         self._connections.setdefault(workflow_id, []).append(websocket)
         logger.info(
             f"Client connected for workflow ID: [{workflow_id}], "
@@ -93,12 +97,48 @@ class ConnectionManager:
                     if self.is_connected(workflow_id):
                         # Send the message's result field
                         await self.send(workflow_id, payload["result"])
+                        # Close the connection if the workflow has reached a terminal state.
+                        if payload.get("status") in TERMINAL_STATUSES:
+                            await self.close(workflow_id)
                     else:
                         logger.debug(f"No active connection found for workflow_id: {workflow_id}")
                 except (KeyError, json.JSONDecodeError) as e:
                     logger.warning(f"Malformed message on channel {channel}: {e}")
         except Exception as e:
             logger.error(f"Redis subscriber crashed: {e}", exc_info=True)
+
+    async def close(self, workflow_id: str, code: int = 1000) -> None:
+        """
+        Close all WebSocket connections for a workflow_id and remove them from the manager.
+        Called after a terminal status (complete/error) is sent so the server drives
+        the shutdown rather than waiting for the client to disconnect.
+
+        :param workflow_id: The workflow whose connections should be closed.
+        :param code: WebSocket close code. 1000 = normal, 1011 = server error.
+        """
+        sockets = self._connections.pop(workflow_id, [])
+        results = await asyncio.gather(
+            *[self._close_one(ws, code) for ws in sockets],
+            return_exceptions=True,
+        )
+        logger.info(
+            f"[{workflow_id}] Closed {sum(r is True for r in results)}/{len(sockets)} connections "
+            f"with code {code}"
+        )
+
+    async def _close_one(self, websocket: WebSocket, code: int) -> bool:
+        """
+        Close a single WebSocket connection. Returns True if successful.
+
+        :param websocket: The connection to close.
+        :param code: WebSocket close code.
+        """
+        try:
+            await websocket.close(code=code)
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to close websocket: {e}")
+            return False
 
     async def send(self, workflow_id: str, message: dict[str, Any]) -> bool:
         """
@@ -149,6 +189,18 @@ class ConnectionManager:
         :return: True if at least one connection was reached, False otherwise.
         """
         return await self.send(workflow_id, {"type": "status", "status": status, "message": message})
+
+    async def send_error(self, workflow_id: str, error_message: str) -> bool:
+        """
+        Send an error message to all local websocket connections for workflow_id.
+        Returns True if at least one connection was reached.
+
+        :param workflow_id: The ID of the workflow to send the error message to.
+        :param error_message: The error message to send.
+
+        :return: True if at least one connection was reached, False otherwise.
+        """
+        return await self.send(workflow_id, {"type": "error", "message": error_message})
 
     def is_connected(self, workflow_id: str) -> bool:
         """

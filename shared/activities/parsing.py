@@ -1,8 +1,25 @@
+from dataclasses import dataclass
+
 from temporalio import activity
 
 
+@dataclass
+class ParseDocumentRequest:
+    workflow_id: str
+    document_id: str
+    pdf_path: str
+
+
+@dataclass
+class ParseDocumentResponse:
+    workflow_id: str
+    document_id: str
+    markdown: str
+    metadata: dict
+
+
 @activity.defn
-async def parse_document(document: str) -> str:
+async def parse_document(request: ParseDocumentRequest) -> ParseDocumentResponse:
     """
     Activity signature for parsing a document, with the activity name, schema, and serialization definition.
     This is an activity contract that never executes, but is used by the workflow to call the activity by name. 

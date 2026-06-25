@@ -1,4 +1,4 @@
-# file: Dockerfile
+# Use this dockerfile to test run the extractor with a canned file
 
 FROM python:3.11-slim
 
@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir \
     opencv-python-headless \
     docling
 
-COPY extract_text_from_pdf.py .
+COPY extractor.py .
 
-CMD ["python", "extract_text_from_pdf.py", "sample.pdf", "output/output.json"]
+CMD ["python", "extractor.py", "sample.pdf", "output/output.json"]
 # CMD ["/bin/bash"]

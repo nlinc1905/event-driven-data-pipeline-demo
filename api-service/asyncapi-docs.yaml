@@ -4,9 +4,9 @@ info:
   title: Document Processing API
   version: "1.0.0"
   description: |
-    Async WebSocket API for document generation. Clients connect to a channel,
-    a Temporal workflow is dispatched, and a single completion message is pushed
-    when the workflow finishes. The connection is closed by the server after delivery.
+    WebSocket API for real-time document processing status updates. Clients connect,
+    send a workflow ID, and receive status updates as the Temporal workflow progresses.
+    The server closes the connection when the workflow reaches a terminal state.
 
 servers:
   local:
@@ -15,52 +15,130 @@ servers:
     description: Local development server
 
 channels:
-  /generate:
-    address: /generate
+  /workflow-status:
+    address: /workflow-status
     description: |
-      Connect to trigger document generation. The server starts a Temporal workflow,
-      waits for completion via a Redis pub/sub channel, then pushes the result and
-      closes the connection.
+      Connect to receive real-time status updates for a document processing workflow.
+      After connecting, the client must send a JSON message with the workflow_id to subscribe.
+      The server pushes status updates as the workflow progresses through parsing and generation,
+      then sends the final result and closes the connection on completion or error.
     messages:
+      subscribeRequest:
+        $ref: "#/components/messages/subscribeRequest"
       statusEvent:
         $ref: "#/components/messages/statusEvent"
-      documentResult:
-        $ref: "#/components/messages/documentResult"
+      completionEvent:
+        $ref: "#/components/messages/completionEvent"
+      errorEvent:
+        $ref: "#/components/messages/errorEvent"
+      pingEvent:
+        $ref: "#/components/messages/pingEvent"
 
 operations:
-  receiveDocumentResult:
+  sendSubscribeRequest:
+    action: send
+    channel:
+      $ref: "#/channels/~1workflow-status"
+    summary: Subscribe to a workflow
+    description: |
+      Must be sent immediately after connecting. The server will begin forwarding
+      status updates for the given workflow_id. If the workflow has already completed,
+      the server returns the cached result immediately and closes the connection.
+    messages:
+      - $ref: "#/channels/~1workflow-status/messages/subscribeRequest"
+
+  receiveStatusEvent:
     action: receive
     channel:
-      $ref: "#/channels/~1generate"
-    summary: Receive document generation result
+      $ref: "#/channels/~1workflow-status"
+    summary: Receive workflow status updates
     description: |
-      Sent by the server once the Temporal workflow completes. This is the only
-      message the server sends on this channel. The connection is closed immediately
-      after delivery.
+      Sent by the server as the workflow progresses through each stage.
+      Multiple status events may be received before the terminal completion or error event.
     messages:
-      - $ref: "#/channels/~1generate/messages/documentResult"
+      - $ref: "#/channels/~1workflow-status/messages/statusEvent"
+      - $ref: "#/channels/~1workflow-status/messages/pingEvent"
+
+  receiveCompletionEvent:
+    action: receive
+    channel:
+      $ref: "#/channels/~1workflow-status"
+    summary: Receive workflow result
+    description: |
+      Sent by the server when the workflow completes successfully. The server closes
+      the connection with code 1000 immediately after delivery.
+    messages:
+      - $ref: "#/channels/~1workflow-status/messages/completionEvent"
+
+  receiveErrorEvent:
+    action: receive
+    channel:
+      $ref: "#/channels/~1workflow-status"
+    summary: Receive workflow error
+    description: |
+      Sent by the server if the workflow fails. The server closes the connection
+      with code 1011 immediately after delivery.
+    messages:
+      - $ref: "#/channels/~1workflow-status/messages/errorEvent"
 
 components:
   messages:
+    subscribeRequest:
+      name: subscribeRequest
+      title: Subscribe Request
+      summary: Sent by the client immediately after connecting to identify the workflow to track.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/subscribeRequest"
+
     statusEvent:
       name: statusEvent
       title: Status Event
-      summary: Emitted by the server when a notable stage in processing is reached.
+      summary: Sent by the server when the workflow reaches a notable processing stage.
       contentType: application/json
       payload:
         $ref: "#/components/schemas/statusEvent"
-    documentResult:
-      name: documentResult
-      title: Document Generation Result
-      summary: The completed document generation result pushed by the server.
+
+    completionEvent:
+      name: completionEvent
+      title: Completion Event
+      summary: Sent by the server when the workflow finishes successfully. Terminal — server closes after delivery.
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/documentResult"
+        $ref: "#/components/schemas/completionEvent"
+
+    errorEvent:
+      name: errorEvent
+      title: Error Event
+      summary: Sent by the server if the workflow fails. Terminal — server closes after delivery.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/errorEvent"
+
+    pingEvent:
+      name: pingEvent
+      title: Ping Event
+      summary: Sent by the server every 30 seconds to keep the connection alive.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/pingEvent"
 
   schemas:
+    subscribeRequest:
+      type: object
+      required:
+        - workflow_id
+      properties:
+        workflow_id:
+          type: string
+          description: The workflow ID returned by POST /parse.
+          examples:
+            - "document-workflow-550e8400-e29b-41d4-a716-446655440000"
+
     statusEvent:
       type: object
       required:
+        - type
         - status
         - message
       properties:
@@ -69,29 +147,74 @@ components:
           enum: [status]
         status:
           type: string
-          enum: [received]
-          description: Machine-readable stage identifier. Extend as new stages are added.
+          enum: [received, processing]
+          description: |
+            Machine-readable stage identifier.
+            - received: server has acknowledged the subscription request.
+            - processing: workflow is actively running.
         message:
           type: string
           description: Human-readable description of the current stage.
           examples:
-            - "Document received, generation started"
-    documentResult:
+            - "Parsing document..."
+            - "Parsing complete"
+            - "Generating document..."
+            - "Generation complete"
+
+    completionEvent:
       type: object
       required:
+        - type
         - status
-        - document
+        - message
+        - result
       properties:
+        type:
+          type: string
+          enum: [status]
         status:
           type: string
-          enum:
-            - completed
-            - failed
-          description: Whether document generation succeeded or failed.
-          examples:
-            - completed
-        document:
+          enum: [complete]
+        message:
           type: string
-          description: The generated document content, or an error message if status is failed.
           examples:
-            - "Generated document content here..."
+            - "Workflow complete"
+        result:
+          type: object
+          description: The final output of the workflow.
+          required:
+            - document
+          properties:
+            document:
+              type: string
+              description: The generated document content.
+              examples:
+                - "Generated document content here..."
+
+    errorEvent:
+      type: object
+      required:
+        - type
+        - status
+        - message
+      properties:
+        type:
+          type: string
+          enum: [status]
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+          description: Human-readable error description.
+          examples:
+            - "Workflow failed during parsing"
+
+    pingEvent:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [ping]

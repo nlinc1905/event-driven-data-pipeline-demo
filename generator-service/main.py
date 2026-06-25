@@ -1,7 +1,7 @@
 import asyncio
 import json
-import os
 
+from shared.clients import redis_client
 from temporalio import activity
 from temporalio.worker import Worker
 
@@ -22,24 +22,29 @@ async def generate_document_implementation(workflow_id: str, document: str) -> s
     where the document generation logic goes. For example, there could be: 
     - summarization
     - content generation
-    """
-    print(f"[Generator] Received document: {document}")
 
+    During the activity, status updates are published to Redis directly, 
+    because this activity cannot call the Temporal activity publish_status.
+    """
     # Start a Redis client to create connections from a pool for immediate request/response actions
     redis_client = await connect_to_redis()
 
-    await asyncio.sleep(20)
-
-    generated = document.upper()[:2]
-
-    print(f"[Generator] Generated result: {generated}")
-
     try:
+        # Publish a status update to Redis indicating that the generation has started
         await redis_client.publish(REDIS_CHANNEL, json.dumps({
             "workflow_id": workflow_id,
-            "result": {"status": "completed", "document": generated},
+            "result": {"type": "status", "status": "processing", "message": "Generating document..."},
         }))
-        print(f"[Generator] Published result for workflow: {workflow_id}")
+
+        # TODO: Implement the actual document generation logic here. For now, we simulate a delay and generate a simple result.
+        await asyncio.sleep(20)
+        generated = document.upper()[:2]
+
+        # Publish a status update to Redis indicating that the generation has completed
+        await redis_client.publish(REDIS_CHANNEL, json.dumps({
+            "workflow_id": workflow_id,
+            "result": {"type": "status", "status": "processing", "message": "Generation complete"},
+        }))
     finally:
         await redis_client.aclose()
 
